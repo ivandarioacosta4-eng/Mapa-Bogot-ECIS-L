@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Mapa Instituciones Educativas – Bogotá D.C.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0f172a;--paper:#f8fafc;--blue:#1d4ed8;--gold:#f59e0b;
+  --side:#ffffff;--border:#e2e8f0;--muted:#64748b;
+  --radius:10px;--shadow:0 4px 24px rgba(15,23,42,.10);
+}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);overflow:hidden}
+#app{display:grid;grid-template-rows:58px 1fr;grid-template-columns:300px 1fr;height:100vh}
+
+/* HEADER */
+header{
+  grid-column:1/-1;
+  display:flex;align-items:center;gap:16px;
+  padding:0 24px;
+  background:var(--ink);
+  position:relative;overflow:hidden;
+}
+header::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(
+    90deg,transparent,transparent 40px,rgba(255,255,255,.03) 40px,rgba(255,255,255,.03) 41px
+  );pointer-events:none;
+}
+.h-badge{
+  width:36px;height:36px;border-radius:8px;
+  background:var(--gold);
+  display:grid;place-items:center;
+  font-size:18px;flex-shrink:0;
+  box-shadow:0 0 0 3px rgba(245,158,11,.25);
+}
+.h-text h1{
+  font-family:'Syne',sans-serif;font-size:15px;font-weight:800;
+  color:#fff;letter-spacing:.03em;line-height:1.1;
+}
+.h-text p{font-size:11px;color:rgba(255,255,255,.5);margin-top:1px;font-weight:300}
+.h-stats{margin-left:auto;display:flex;gap:8px}
+.h-pill{
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  border-radius:20px;padding:4px 12px;font-size:11px;color:rgba(255,255,255,.75);
+  display:flex;align-items:center;gap:6px;
+}
+.h-pill .n{font-weight:700;font-size:13px;color:#fff}
+
+/* SIDEBAR */
+aside{
+  background:var(--side);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.sb-top{
+  padding:16px;
+  background:linear-gradient(160deg,#f0f4ff 0%,#fff 100%);
+  border-bottom:1px solid var(--border);
+}
+.sb-top h2{
+  font-family:'Syne',sans-serif;font-size:11px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.1em;
+  color:var(--blue);margin-bottom:10px;
+}
+.search-box{
+  position:relative;margin-bottom:10px;
+}
+.search-box input{
+  width:100%;padding:8px 10px 8px 32px;
+  border:1.5px solid var(--border);border-radius:8px;
+  font-family:'DM Sans',sans-serif;font-size:12px;
+  color:var(--ink);background:#fff;outline:none;
+  transition:border-color .2s;
+}
+.search-box input:focus{border-color:var(--blue)}
+.search-box::before{
+  content:'⌕';position:absolute;left:9px;top:50%;
+  transform:translateY(-50%);font-size:14px;color:var(--muted);
+}
+.sb-filters{display:flex;flex-direction:column;gap:8px}
+.fg label{
+  display:block;font-size:9px;font-weight:700;
+  color:var(--muted);text-transform:uppercase;
+  letter-spacing:.1em;margin-bottom:3px;
+}
+select{
+  width:100%;padding:7px 24px 7px 9px;
+  border:1.5px solid var(--border);border-radius:8px;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%2364748b' d='M5 6L0 0h10z'/%3E%3C/svg%3E") no-repeat right 8px center;
+  font-family:'DM Sans',sans-serif;font-size:12px;color:var(--ink);
+  outline:none;cursor:pointer;appearance:none;transition:border-color .2s;
+}
+select:focus{border-color:var(--blue)}
+
+/* Leyenda */
+.legend-wrap{padding:12px 16px;border-bottom:1px solid var(--border)}
+.legend-title{
+  font-family:'Syne',sans-serif;font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px;
+}
+.legend-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.leg-item{
+  display:flex;align-items:center;gap:6px;padding:4px 7px;
+  border-radius:6px;cursor:pointer;transition:background .15s;
+  border:1.5px solid transparent;font-size:11px;color:var(--ink);
+}
+.leg-item:hover{background:#f1f5f9}
+.leg-item.off{opacity:.35}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.leg-name{font-size:10px;line-height:1.2;font-weight:500}
+.leg-count{margin-left:auto;font-size:9px;color:var(--muted);font-weight:700}
+
+/* Resultados + Lista */
+.res-bar{
+  padding:8px 16px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:#f8fafc;border-bottom:1px solid var(--border);
+  font-size:11px;color:var(--muted);flex-shrink:0;
+}
+.res-bar strong{color:var(--blue);font-size:13px;font-weight:700}
+.btn-reset{
+  background:none;border:1.5px solid var(--border);border-radius:6px;
+  padding:3px 9px;font-size:10px;cursor:pointer;
+  color:var(--muted);font-family:'DM Sans',sans-serif;transition:all .2s;
+}
+.btn-reset:hover{background:#eff6ff;color:var(--blue);border-color:var(--blue)}
+.list-wrap{flex:1;overflow-y:auto;background:#fff}
+.li{
+  padding:8px 16px;border-bottom:1px solid #f1f5f9;
+  cursor:pointer;transition:background .12s;
+  display:flex;align-items:flex-start;gap:8px;
+}
+.li:hover{background:#eff6ff}
+.li.act{background:#eff6ff;border-left:3px solid var(--blue)}
+.li-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.li-body{}
+.li-n{font-size:11px;font-weight:600;line-height:1.3;color:var(--ink)}
+.li-s{font-size:10px;color:var(--muted);margin-top:1px}
+.empty{padding:24px;text-align:center;font-size:12px;color:var(--muted)}
+
+/* MAP */
+#mw{position:relative}
+#map{width:100%;height:100%}
+.leaflet-tile-pane{filter:saturate(.75) brightness(1.05)}
+.leaflet-popup-content-wrapper{
+  background:#fff!important;border:none!important;
+  border-radius:14px!important;
+  box-shadow:0 8px 32px rgba(15,23,42,.15)!important;
+  padding:0!important;overflow:hidden;
+}
+.leaflet-popup-tip{background:#fff!important}
+.leaflet-popup-close-button{color:var(--muted)!important;top:10px!important;right:12px!important;font-size:16px!important}
+.pop-top{padding:12px 36px 10px 14px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#fff}
+.pop-body{padding:11px 14px 14px}
+.pop-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:7px;line-height:1.3;color:var(--ink)}
+.pop-row{display:flex;gap:5px;font-size:11px;color:var(--muted);margin-bottom:3px;align-items:flex-start}
+.pop-row b{color:var(--ink);font-weight:600;min-width:64px;flex-shrink:0}
+.pop-loc{
+  display:inline-flex;align-items:center;gap:4px;
+  margin-top:7px;padding:3px 8px;border-radius:6px;
+  font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+}
+#counter-box{
+  position:absolute;top:14px;right:14px;z-index:900;
+  background:rgba(255,255,255,.96);
+  border:1px solid var(--border);border-radius:12px;
+  padding:10px 14px;font-size:11px;color:var(--muted);
+  box-shadow:var(--shadow);min-width:160px;
+}
+#counter-box strong{
+  font-family:'Syne',sans-serif;font-size:22px;font-weight:800;
+  color:var(--blue);display:block;line-height:1;
+}
+#counter-box span{font-size:10px;text-transform:uppercase;letter-spacing:.07em}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+</style>
+</head>
+<body>
+<div id="app">
+
+<header>
+  <div class="h-badge">🏫</div>
+  <div class="h-text">
+    <h1>Instituciones Educativas — Bogotá D.C.</h1>
+    <p>Secretaría de Educación Distrital · 10 Localidades</p>
+  </div>
+  <div class="h-stats">
+    <div class="h-pill"><span class="n" id="cnt-vis">241</span> visibles</div>
+    <div class="h-pill"><span class="n">241</span> total</div>
+  </div>
+</header>
+
+<aside>
+  <div class="sb-top">
+    <h2>Filtros</h2>
+    <div class="search-box">
+      <input type="text" id="f-search" placeholder="Buscar institución..." oninput="af()"/>
+    </div>
+    <div class="sb-filters">
+      <div class="fg">
+        <label>Localidad</label>
+        <select id="f-loc" onchange="af()">
+          <option value="">Todas las localidades</option>
+          <option value="BOSA">BOSA</option>
+<option value="CIUDAD BOLIVAR">CIUDAD BOLIVAR</option>
+<option value="FONTIBON">FONTIBON</option>
+<option value="KENNEDY">KENNEDY</option>
+<option value="PUENTE ARANDA">PUENTE ARANDA</option>
+<option value="RAFAEL URIBE URIBE">RAFAEL URIBE URIBE</option>
+<option value="SAN CRISTOBAL">SAN CRISTOBAL</option>
+<option value="SUMAPAZ">SUMAPAZ</option>
+<option value="TUNJUELITO">TUNJUELITO</option>
+<option value="USME">USME</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend-wrap">
+    <div class="legend-title">Localidades</div>
+    <div class="legend-grid" id="legend"></div>
+  </div>
+
+  <div class="res-bar">
+    <div>Mostrando <strong id="cnt-res">241</strong> colegios</div>
+    <button class="btn-reset" onclick="rf()">↺ Limpiar</button>
+  </div>
+  <div class="list-wrap">
+    <ul id="plist" style="list-style:none"></ul>
+  </div>
+</aside>
+
+<div id="mw">
+  <div id="map"></div>
+  <div id="counter-box">
+    <strong id="big-cnt">241</strong>
+    <span>colegios<br>en mapa</span>
+  </div>
+</div>
+</div>
+
+<script>
+var DATA=[{"nombre": "COLEGIO GRAN COLOMBIA (CED)", "sede": "GRAN COLOMBIA", "localidad": "SAN CRISTOBAL", "dane": "111001011975", "lat": 4.567373, "lng": -74.068784}, {"nombre": "COLEGIO VEINTE DE JULIO (IED)", "sede": "SEDE A - VEINTE DE JULIO", "localidad": "SAN CRISTOBAL", "dane": "111001012033", "lat": 4.571244, "lng": -74.094701}, {"nombre": "COLEGIO PANTALEON GAITAN PEREZ (CED)", "sede": "PANTALEON GAITAN PEREZ", "localidad": "SAN CRISTOBAL", "dane": "111001012246", "lat": 4.569042186, "lng": -74.07470729}, {"nombre": "COLEGIO SAN JOSE SUR ORIENTAL (IED)", "sede": "SAN JOSE SUR ORIENTAL", "localidad": "SAN CRISTOBAL", "dane": "111001012301", "lat": 4.54651382, "lng": -74.08419581}, {"nombre": "COLEGIO JUANA ESCOBAR (IED)", "sede": "JUANA ESCOBAR", "localidad": "SAN CRISTOBAL", "dane": "111001012335", "lat": 4.530702778, "lng": -74.08555833}, {"nombre": "COLEGIO AGUAS CLARAS (CED)", "sede": "AGUAS CLARAS", "localidad": "SAN CRISTOBAL", "dane": "111001012475", "lat": 4.695892756, "lng": -74.10237609}, {"nombre": "COLEGIO ALTAMIRA SUR ORIENTAL (IED)", "sede": "ALTAMIRA SUR ORIENTAL", "localidad": "SAN CRISTOBAL", "dane": "111001014168", "lat": 4.544133875, "lng": -74.08935781}, {"nombre": "COLEGIO TECNICO SAN CRISTOBAL SUR (IED)", "sede": "SAN CRISTOBAL SUR", "localidad": "SAN CRISTOBAL", "dane": "111001014176", "lat": 4.569663325, "lng": -74.08112028}, {"nombre": "COLEGIO JOSE ACEVEDO Y GOMEZ (IED)", "sede": "JOSE ACEVEDO Y GOMEZ", "localidad": "SAN CRISTOBAL", "dane": "111001014451", "lat": 4.562423248, "lng": -74.0838029}, {"nombre": "COLEGIO MONTEBELLO (IED)", "sede": "MONTEBELLO", "localidad": "SAN CRISTOBAL", "dane": "111001015903", "lat": 4.56671197, "lng": -74.08815501}, {"nombre": "COLEGIO LOS ALPES (IED)", "sede": "SEDE A - LOS ALPES", "localidad": "SAN CRISTOBAL", "dane": "111001015911", "lat": 4.55050774, "lng": -74.08804315}, {"nombre": "COLEGIO LA BELLEZA LOS LIBERTADORES (IED)", "sede": "LA BELLEZA", "localidad": "SAN CRISTOBAL", "dane": "111001016004", "lat": 4.530258, "lng": -74.092168}, {"nombre": "COLEGIO JOSE MARIA CARBONELL (IED)", "sede": "JOSE MARIA CARBONELL", "localidad": "SAN CRISTOBAL", "dane": "111001018252", "lat": 4.583027221, "lng": -74.07992235}, {"nombre": "COLEGIO ATENAS (IED)", "sede": "ATENAS", "localidad": "SAN CRISTOBAL", "dane": "111001018309", "lat": 4.556633333, "lng": -74.09387933}, {"nombre": "COLEGIO JOSE JOAQUIN CASTRO MARTINEZ (IED)", "sede": "JOSE JOAQUIN CASTRO MARTINEZ", "localidad": "SAN CRISTOBAL", "dane": "111001018325", "lat": 4.55981515, "lng": -74.09263128}, {"nombre": "COLEGIO EL RODEO (IED)", "sede": "EL RODEO", "localidad": "SAN CRISTOBAL", "dane": "111001018333", "lat": 4.546076, "lng": -74.092911}, {"nombre": "COLEGIO FRANCISCO JAVIER MATIZ (IED)", "sede": "FRANCISCO JAVIER MATIZ", "localidad": "SAN CRISTOBAL", "dane": "111001018341", "lat": 4.56541562, "lng": -74.09379186}, {"nombre": "COLEGIO LA VICTORIA (IED)", "sede": "LA VICTORIA", "localidad": "SAN CRISTOBAL", "dane": "111001018368", "lat": 4.55255, "lng": -74.09336389}, {"nombre": "COLEGIO SAN ISIDRO SUR ORIENTAL (IED)", "sede": "SAN ISIDRO SUR ORIENTAL", "localidad": "SAN CRISTOBAL", "dane": "111001018384", "lat": 4.565621, "lng": -74.100915}, {"nombre": "COLEGIO ENTRE NUBES SUR ORIENTAL (IED)", "sede": "ANIBAL FERNANDEZ DE SOTO", "localidad": "SAN CRISTOBAL", "dane": "111001020443", "lat": 4.547739568, "lng": -74.09742248}, {"nombre": "COLEGIO MORALBA SURORIENTAL (IED)", "sede": "MORALBA SURORIENTAL", "localidad": "SAN CRISTOBAL", "dane": "111001024686", "lat": 4.537591667, "lng": -74.08291667}, {"nombre": "COLEGIO FLORENTINO GONZALEZ (IED)", "sede": "FLORENTINO GONZALEZ", "localidad": "SAN CRISTOBAL", "dane": "111001027324", "lat": 4.567248413, "lng": -74.09626743}, {"nombre": "COLEGIO MANUELITA SAENZ (IED)", "sede": "MANUELITA SAENZ", "localidad": "SAN CRISTOBAL", "dane": "111001030066", "lat": 4.571106236, "lng": -74.08511337}, {"nombre": "COLEGIO ALEMANIA UNIFICADA (IED)", "sede": "GUACAMAYAS", "localidad": "SAN CRISTOBAL", "dane": "111001030864", "lat": 4.557618333, "lng": -74.09983333}, {"nombre": "COLEGIO TECNICO TOMAS RUEDA VARGAS (IED)", "sede": "TOMAS RUEDA VARGAS", "localidad": "SAN CRISTOBAL", "dane": "111001032280", "lat": 4.561461987, "lng": -74.08642997}, {"nombre": "COLEGIO REPUBLICA DEL ECUADOR (IED)", "sede": "REPUBLICA DEL ECUADOR", "localidad": "SAN CRISTOBAL", "dane": "111001032433", "lat": 4.574939, "lng": -74.076737}, {"nombre": "COLEGIO JUAN REY (IED)", "sede": "JUAN REY", "localidad": "SAN CRISTOBAL", "dane": "111001034011", "lat": 4.52048312, "lng": -74.0877943}, {"nombre": "COLEGIO TECNICO JOSE FELIX RESTREPO (IED)", "sede": "JOSE FELIX RESTREPO", "localidad": "SAN CRISTOBAL", "dane": "111001035530", "lat": 4.5728666, "lng": -74.07940634}, {"nombre": "COLEGIO JUAN EVANGELISTA GOMEZ (IED)", "sede": "JUAN EVANGELISTA GOMEZ", "localidad": "SAN CRISTOBAL", "dane": "111001035602", "lat": 4.552283, "lng": -74.095434}, {"nombre": "COLEGIO NUEVA DELHI (IED)", "sede": "NUEVA DELHI", "localidad": "SAN CRISTOBAL", "dane": "111001046621", "lat": 4.528452192, "lng": -74.08743511}, {"nombre": "COLEGIO RAFAEL NUÑEZ (IED)", "sede": "RAFAEL NUÑEZ", "localidad": "SAN CRISTOBAL", "dane": "111001086789", "lat": 4.574023136, "lng": -74.09544517}, {"nombre": "COLEGIO TECNICO ALDEMAR ROJAS PLAZAS (IED)", "sede": "ALDEMAR ROJAS PLAZAS", "localidad": "SAN CRISTOBAL", "dane": "111001102016", "lat": 4.579888695, "lng": -74.09097767}, {"nombre": "COLEGIO GLORIA VALENCIA DE CASTAÑO (IED)", "sede": "COLEGIO GLORIA VALENCIA DE CASTAÑO (IED)", "localidad": "SAN CRISTOBAL", "dane": "111001801047", "lat": 4.526962753, "lng": -74.08702279}, {"nombre": "COLEGIO SANTA LIBRADA (IED)", "sede": "SANTA LIBRADA", "localidad": "USME", "dane": "111001013820", "lat": 4.513951151, "lng": -74.1132011}, {"nombre": "COLEGIO SANTA MARTHA (IED)", "sede": "SANTA MARTHA", "localidad": "USME", "dane": "111001013935", "lat": 4.525365, "lng": -74.115558}, {"nombre": "COLEGIO ORLANDO FALS BORDA (IED)", "sede": "ORLANDO FALS BORDA", "localidad": "USME", "dane": "111001016039", "lat": 4.519430248, "lng": -74.11549001}, {"nombre": "COLEGIO ESTANISLAO ZULETA (IED)", "sede": "ESTANISLAO ZULETA", "localidad": "USME", "dane": "111001030872", "lat": 4.497978701, "lng": -74.10089356}, {"nombre": "COLEGIO PROVINCIA DE QUEBEC (IED)", "sede": "PROVINCIA DE QUEBEC", "localidad": "USME", "dane": "111001041556", "lat": 4.516007327, "lng": -74.09091064}, {"nombre": "COLEGIO LOS COMUNEROS - OSWALDO GUAYASAMIN (IED)", "sede": "LOS COMUNEROS", "localidad": "USME", "dane": "111001044270", "lat": 4.498449, "lng": -74.108979}, {"nombre": "COLEGIO LA AURORA (IED)", "sede": "LA AURORA", "localidad": "USME", "dane": "111001045705", "lat": 4.521580058, "lng": -74.12132689}, {"nombre": "COLEGIO NUEVO SAN ANDRES DE LOS ALTOS (IED)", "sede": "NUEVO SAN ANDRES DE LOS ALTOS", "localidad": "USME", "dane": "111001046485", "lat": 4.524914351, "lng": -74.12017074}, {"nombre": "COLEGIO ATABANZHA (IED)", "sede": "ATABANZHA", "localidad": "USME", "dane": "111001046931", "lat": 4.50779, "lng": -74.11821}, {"nombre": "COLEGIO USMINIA (IED)", "sede": "USMINIA", "localidad": "USME", "dane": "111001065234", "lat": 4.495325, "lng": -74.11455278}, {"nombre": "COLEGIO OFELIA URIBE DE ACOSTA (IED)", "sede": "OFELIA URIBE DE ACOSTA", "localidad": "USME", "dane": "111001077895", "lat": 4.506126514, "lng": -74.10305455}, {"nombre": "COLEGIO BRASILIA - USME (IED)", "sede": "BRASILIA - USME", "localidad": "USME", "dane": "111001077917", "lat": 4.517611775, "lng": -74.11656383}, {"nombre": "COLEGIO EL VIRREY JOSE SOLIS (IED)", "sede": "EL VIRREY JOSE SOLIS", "localidad": "USME", "dane": "111001078638", "lat": 4.502809, "lng": -74.111877}, {"nombre": "COLEGIO MIGUEL DE CERVANTES SAAVEDRA (IED)", "sede": "MIGUEL DE CERVANTES SAAVEDRA", "localidad": "USME", "dane": "111001083011", "lat": 4.512667685, "lng": -74.11714754}, {"nombre": "COLEGIO CHUNIZA (IED)", "sede": "CHUNIZA", "localidad": "USME", "dane": "111001086614", "lat": 4.505569482, "lng": -74.11089765}, {"nombre": "COLEGIO SAN CAYETANO (IED)", "sede": "SAN CAYETANO", "localidad": "USME", "dane": "111001098833", "lat": 4.517155834, "lng": -74.08813974}, {"nombre": "COLEGIO LUIS EDUARDO MORA OSEJO (IED)", "sede": "LUIS EDUARDO MORA OSEJO", "localidad": "USME", "dane": "111001098868", "lat": 4.503692, "lng": -74.118682}, {"nombre": "COLEGIO EDUARDO UMAÑA MENDOZA (IED)", "sede": "EDUARDO UMAÑA MENDOZA", "localidad": "USME", "dane": "111001104337", "lat": 4.489967443, "lng": -74.1129091}, {"nombre": "COLEGIO DIEGO MONTAÑA CUELLAR (IED)", "sede": "EL UVAL", "localidad": "USME", "dane": "111001104345", "lat": 4.478252, "lng": -74.104595}, {"nombre": "COLEGIO CIUDAD DE VILLAVICENCIO (IED)", "sede": "CIUDAD DE VILLAVICENCIO", "localidad": "USME", "dane": "111001104353", "lat": 4.486868988, "lng": -74.10253946}, {"nombre": "COLEGIO FRANCISCO ANTONIO ZEA DE USME (IED)", "sede": "USME", "localidad": "USME", "dane": "111850000740", "lat": 4.469516918, "lng": -74.12533347}, {"nombre": "COLEGIO EL CORTIJO - VIANEY (IED)", "sede": "EL CORTIJO", "localidad": "USME", "dane": "111850001380", "lat": 4.51751378, "lng": -74.11934369}, {"nombre": "COLEGIO ALMIRANTE PADILLA (IED)", "sede": "ALMIRANTE PADILLA", "localidad": "USME", "dane": "111850001428", "lat": 4.512151662, "lng": -74.11291854}, {"nombre": "COLEGIO LOS TEJARES (IED)", "sede": "LOS TEJARES", "localidad": "USME", "dane": "111850001461", "lat": 4.510903738, "lng": -74.1032654}, {"nombre": "COLEGIO FEDERICO GARCIA LORCA (IED)", "sede": "FEDERICO GARCIA LORCA", "localidad": "USME", "dane": "111850001576", "lat": 4.507220219, "lng": -74.10747223}, {"nombre": "COLEGIO GABRIEL GARCIA MARQUEZ (IED)", "sede": "GABRIEL GARCIA MARQUEZ", "localidad": "USME", "dane": "211001032501", "lat": 4.503957403, "lng": -74.09196846}, {"nombre": "COLEGIO RURAL LA UNION USME (CED)", "sede": "RURAL LA UNION USME", "localidad": "USME", "dane": "211850000043", "lat": 4.342352, "lng": -74.17594}, {"nombre": "COLEGIO GRAN YOMASA (IED)", "sede": "GRAN YOMASA", "localidad": "USME", "dane": "211850000051", "lat": 4.508174467, "lng": -74.10995268}, {"nombre": "COLEGIO RURAL OLARTE (CED)", "sede": "RURAL OLARTE", "localidad": "USME", "dane": "211850000108", "lat": 4.440915, "lng": -74.134439}, {"nombre": "COLEGIO RURAL LOS ANDES (CED)", "sede": "RURAL LOS ANDES", "localidad": "USME", "dane": "211850000698", "lat": 4.35165, "lng": -74.167418}, {"nombre": "COLEGIO RURAL LOS ARRAYANES (CED)", "sede": "RURAL LOS ARRAYANES", "localidad": "USME", "dane": "211850000710", "lat": 4.337145, "lng": -74.145557}, {"nombre": "COLEGIO RURAL LA ARGENTINA (CED)", "sede": "RURAL LA ARGENTINA", "localidad": "USME", "dane": "211850000736", "lat": 4.383637, "lng": -74.135923}, {"nombre": "COLEGIO TENERIFE - GRANADA SUR (IED)", "sede": "TENERIFE", "localidad": "USME", "dane": "211850000787", "lat": 4.516584013, "lng": -74.12289939}, {"nombre": "COLEGIO RURAL CHIZACA (CED)", "sede": "RURAL CHIZACA", "localidad": "USME", "dane": "211850000841", "lat": 4.339332, "lng": -74.203182}, {"nombre": "COLEGIO RURAL EL CURUBITAL (CED)", "sede": "RURAL EL CURUBITAL", "localidad": "USME", "dane": "211850000868", "lat": 4.352394, "lng": -74.139258}, {"nombre": "COLEGIO EL DESTINO (IED)", "sede": "RURAL EL DESTINO", "localidad": "USME", "dane": "211850000876", "lat": 4.406453, "lng": -74.138978}, {"nombre": "COLEGIO RURAL EL HATO (CED)", "sede": "RURAL EL HATO", "localidad": "USME", "dane": "211850000884", "lat": 4.381777, "lng": -74.155561}, {"nombre": "COLEGIO BRAZUELOS (IED)", "sede": "BRAZUELOS", "localidad": "USME", "dane": "211850000931", "lat": 4.495065298, "lng": -74.11996254}, {"nombre": "COLEGIO EL UVAL (IED)", "sede": "RURAL EL UVAL", "localidad": "USME", "dane": "211850000981", "lat": 4.49727586, "lng": -74.11452029}, {"nombre": "COLEGIO RURAL LA MAYORIA (CED)", "sede": "RURAL LA MAYORIA", "localidad": "USME", "dane": "211850001007", "lat": 4.370607, "lng": -74.187873}, {"nombre": "COLEGIO RURAL LAS MERCEDES (CED)", "sede": "RURAL LAS MERCEDES", "localidad": "USME", "dane": "211850001074", "lat": 4.391313, "lng": -74.17635}, {"nombre": "COLEGIO FABIO LOZANO SIMONELLI (IED)", "sede": "FABIO LOZANO SIMONELLI", "localidad": "USME", "dane": "211850001481", "lat": 4.53787, "lng": -74.114921}, {"nombre": "COLEGIO CENTRO INTEGRAL JOSE MARIA CORDOBA (IED)", "sede": "JOSE MARIA CORDOBA", "localidad": "TUNJUELITO", "dane": "111001009652", "lat": 4.57779531, "lng": -74.13177555}, {"nombre": "COLEGIO VENECIA (IED)", "sede": "VENECIA", "localidad": "TUNJUELITO", "dane": "111001010251", "lat": 4.592180556, "lng": -74.14375556}, {"nombre": "COLEGIO INSTITUTO TECNICO INDUSTRIAL PILOTO (IED)", "sede": "PILOTO", "localidad": "TUNJUELITO", "dane": "111001011011", "lat": 4.5857806, "lng": -74.13834893}, {"nombre": "COLEGIO RAFAEL URIBE URIBE (IED)", "sede": "RAFAEL URIBE URIBE", "localidad": "TUNJUELITO", "dane": "111001012271", "lat": 4.57890935, "lng": -74.13464603}, {"nombre": "COLEGIO MARCO FIDEL SUAREZ (IED)", "sede": "MARCO FIDEL SUAREZ", "localidad": "TUNJUELITO", "dane": "111001014206", "lat": 4.577850267, "lng": -74.13520638}, {"nombre": "COLEGIO CIUDAD DE BOGOTA (IED)", "sede": "CIUDAD DE BOGOTA", "localidad": "TUNJUELITO", "dane": "111001014214", "lat": 4.57694873, "lng": -74.13819687}, {"nombre": "COLEGIO RUFINO JOSE CUERVO (IED)", "sede": "RUFINO JOSE CUERVO", "localidad": "TUNJUELITO", "dane": "111001018201", "lat": 4.555475552, "lng": -74.1238525}, {"nombre": "COLEGIO INEM SANTIAGO PEREZ (IED)", "sede": "INEM SANTIAGO PEREZ", "localidad": "TUNJUELITO", "dane": "111001019411", "lat": 4.575162, "lng": -74.132415}, {"nombre": "COLEGIO BERNARDO JARAMILLO (IED)", "sede": "BERNARDO JARAMILLO", "localidad": "TUNJUELITO", "dane": "111001032450", "lat": 4.564856997, "lng": -74.12442644}, {"nombre": "COLEGIO ISLA DEL SOL (IED)", "sede": "ISLA DEL SOL", "localidad": "TUNJUELITO", "dane": "111001075736", "lat": 4.589421524, "lng": -74.15253778}, {"nombre": "COLEGIO SAN CARLOS (IED)", "sede": "JOSE ANTONIO RICAURTE", "localidad": "TUNJUELITO", "dane": "111001075957", "lat": 4.63862591, "lng": -74.07129373}, {"nombre": "COLEGIO SAN BENITO ABAD (IED)", "sede": "DIANA TURBAY", "localidad": "TUNJUELITO", "dane": "111001086631", "lat": 4.56588343, "lng": -74.13434433}, {"nombre": "COLEGIO CARLOS ALBAN HOLGUIN (IED)", "sede": "CARLOS ALBAN HOLGUIN", "localidad": "BOSA", "dane": "111001002909", "lat": 4.605605903, "lng": -74.19685941}, {"nombre": "COLEGIO CEDID SAN PABLO (IED)", "sede": "SAN PABLO BOSA", "localidad": "BOSA", "dane": "111001010031", "lat": 4.600003958, "lng": -74.18758606}, {"nombre": "COLEGIO NUEVO CHILE (IED)", "sede": "NUEVO CHILE", "localidad": "BOSA", "dane": "111001013676", "lat": 4.603338936, "lng": -74.16602484}, {"nombre": "COLEGIO BRASILIA - BOSA (IED)", "sede": "BRASILIA - BOSA", "localidad": "BOSA", "dane": "111001014109", "lat": 4.62796934, "lng": -74.18155788}, {"nombre": "COLEGIO MOTORISTA (CED)", "sede": "MOTORISTA", "localidad": "BOSA", "dane": "111001041599", "lat": 4.597756667, "lng": -74.17565667}, {"nombre": "COLEGIO GRANCOLOMBIANO (IED)", "sede": "GRANCOLOMBIANO", "localidad": "BOSA", "dane": "111001046477", "lat": 4.610194427, "lng": -74.19977986}, {"nombre": "COLEGIO JOSE ANTONIO GALAN (IED)", "sede": "JOSE ANTONIO GALAN", "localidad": "BOSA", "dane": "111001046591", "lat": 4.607335, "lng": -74.175611}, {"nombre": "COLEGIO LLANO ORIENTAL (IED)", "sede": "LLANO ORIENTAL", "localidad": "BOSA", "dane": "111001086606", "lat": 4.603695, "lng": -74.20011167}, {"nombre": "COLEGIO LA CONCEPCION (IED)", "sede": "LA CONCEPCION", "localidad": "BOSA", "dane": "111001086754", "lat": 4.62264819, "lng": -74.1950534}, {"nombre": "COLEGIO ALFONSO REYES ECHANDIA (IED)", "sede": "ALFONSO REYES ECHANDIA", "localidad": "BOSA", "dane": "111001104299", "lat": 4.615894071, "lng": -74.20078496}, {"nombre": "COLEGIO ORLANDO HIGUITA ROJAS (IED)", "sede": "ORLANDO HIGUITA ROJAS", "localidad": "BOSA", "dane": "111001104302", "lat": 4.625485, "lng": -74.187775}, {"nombre": "COLEGIO CARLOS PIZARRO LEON GOMEZ (IED)", "sede": "CARLOS PIZARRO LEON GOMEZ", "localidad": "BOSA", "dane": "111001104329", "lat": 4.63594845, "lng": -74.2043919}, {"nombre": "COLEGIO DE LA BICI (IED)", "sede": "DE LA BICI", "localidad": "BOSA", "dane": "111001800643", "lat": 4.61420018, "lng": -74.18271391}, {"nombre": "COLEGIO ESMERALDA ARBOLEDA CADAVID (IED)", "sede": "COLEGIO ESMERALDA ARBOLEDA CADAVID (IED)", "localidad": "BOSA", "dane": "111001801080", "lat": 4.6156, "lng": -74.19447}, {"nombre": "COLEGIO CIUDADELA EL RECREO SONIA OSORIO DE SAINT-MALO (IED)", "sede": "COLEGIO CIUDADELA EL RECREO SONIA OSORIO DE SAINT-MALO (IED)", "localidad": "BOSA", "dane": "111001801098", "lat": 4.63358971, "lng": -74.19882239}, {"nombre": "COLEGIO LAURA HERRERA DE VARELA (IED)", "sede": "COLEGIO LAURA HERRERA DE VARELA (IED)", "localidad": "BOSA", "dane": "111001801101", "lat": 4.63080317, "lng": -74.187009}, {"nombre": "COLEGIO LUIS LOPEZ DE MESA (IED)", "sede": "LUIS LOPEZ DE MESA", "localidad": "BOSA", "dane": "111102000265", "lat": 4.600306032, "lng": -74.18613959}, {"nombre": "COLEGIO PABLO DE TARSO (IED)", "sede": "PABLO DE TARSO", "localidad": "BOSA", "dane": "111102000281", "lat": 4.603530902, "lng": -74.18733242}, {"nombre": "COLEGIO FRANCISCO DE PAULA SANTANDER (IED)", "sede": "FRANCISCO DE PAULA SANTANDER", "localidad": "BOSA", "dane": "111102000621", "lat": 4.61096472, "lng": -74.18455313}, {"nombre": "COLEGIO FERNANDO MAZUERA VILLEGAS (IED)", "sede": "FERNANDO MAZUERA VILLEGAS", "localidad": "BOSA", "dane": "111102000753", "lat": 4.614825, "lng": -74.196429}, {"nombre": "COLEGIO PORFIRIO BARBA JACOB (IED)", "sede": "PORFIRIO BARBA JACOB", "localidad": "BOSA", "dane": "111102000958", "lat": 4.612161, "lng": -74.193808}, {"nombre": "COLEGIO VILLAS DEL PROGRESO (IED)", "sede": "VILLAS DEL PROGRESO", "localidad": "BOSA", "dane": "211001076958", "lat": 4.626190252, "lng": -74.19477222}, {"nombre": "COLEGIO SAN BERNARDINO (IED)", "sede": "SAN BERNARDINO", "localidad": "BOSA", "dane": "211102000201", "lat": 4.622316187, "lng": -74.20790009}, {"nombre": "COLEGIO EL PORVENIR (IED)", "sede": "EL PORVENIR", "localidad": "BOSA", "dane": "211102000243", "lat": 4.640819444, "lng": -74.19796667}, {"nombre": "COLEGIO BOSANOVA (IED)", "sede": "BOSANOVA", "localidad": "BOSA", "dane": "211102000995", "lat": 4.617178, "lng": -74.183833}, {"nombre": "COLEGIO CARLOS ARANGO VELEZ (IED)", "sede": "CARLOS ARANGO VELEZ", "localidad": "KENNEDY", "dane": "111001000124", "lat": 4.616233333, "lng": -74.13580278}, {"nombre": "COLEGIO DARIO ECHANDIA (IED)", "sede": "DARIO ECHANDIA", "localidad": "KENNEDY", "dane": "111001001279", "lat": 4.642016166, "lng": -74.16196832}, {"nombre": "COLEGIO NACIONAL NICOLAS ESGUERRA (IED)", "sede": "NACIONAL NICOLAS ESGUERRA", "localidad": "KENNEDY", "dane": "111001010910", "lat": 4.632365, "lng": -74.12209}, {"nombre": "COLEGIO CARLOS ARTURO TORRES (IED)", "sede": "CARLOS ARTURO TORRES", "localidad": "KENNEDY", "dane": "111001011321", "lat": 4.599927778, "lng": -74.14651944}, {"nombre": "COLEGIO LA AMISTAD (IED)", "sede": "LA AMISTAD", "localidad": "KENNEDY", "dane": "111001011690", "lat": 4.623057887, "lng": -74.14790635}, {"nombre": "COLEGIO TOM ADAMS (IED)", "sede": "TOM ADAMS", "localidad": "KENNEDY", "dane": "111001012343", "lat": 4.618545694, "lng": -74.15575904}, {"nombre": "COLEGIO EL JAPON (IED)", "sede": "EL JAPON", "localidad": "KENNEDY", "dane": "111001012360", "lat": 4.621666636, "lng": -74.15367379}, {"nombre": "COLEGIO SAN PEDRO CLAVER (IED)", "sede": "SAN PEDRO CLAVER", "localidad": "KENNEDY", "dane": "111001013102", "lat": 4.62216701, "lng": -74.16108899}, {"nombre": "COLEGIO CLASS (IED)", "sede": "CLASS", "localidad": "KENNEDY", "dane": "111001013129", "lat": 4.613951, "lng": -74.178983}, {"nombre": "COLEGIO PAULO VI (IED)", "sede": "PAULO VI", "localidad": "KENNEDY", "dane": "111001013153", "lat": 4.621341925, "lng": -74.15845525}, {"nombre": "COLEGIO SAN JOSE (IED)", "sede": "SAN JOSE", "localidad": "KENNEDY", "dane": "111001013161", "lat": 4.621291158, "lng": -74.16332927}, {"nombre": "COLEGIO SAN RAFAEL (IED)", "sede": "SAN RAFAEL", "localidad": "KENNEDY", "dane": "111001013170", "lat": 4.617193365, "lng": -74.16182753}, {"nombre": "COLEGIO MARSELLA (IED)", "sede": "SEDE A - MARSELLA", "localidad": "KENNEDY", "dane": "111001014290", "lat": 4.63494679, "lng": -74.12601369}, {"nombre": "COLEGIO FRANCISCO DE MIRANDA (IED)", "sede": "FRANCISCO DE MIRANDA", "localidad": "KENNEDY", "dane": "111001014974", "lat": 4.61272825, "lng": -74.15431629}, {"nombre": "COLEGIO LAS AMERICAS (IED)", "sede": "LAS AMERICAS", "localidad": "KENNEDY", "dane": "111001015598", "lat": 4.616133732, "lng": -74.15032334}, {"nombre": "COLEGIO O.E.A. (IED)", "sede": "O.E.A.", "localidad": "KENNEDY", "dane": "111001015601", "lat": 4.60930844, "lng": -74.14087701}, {"nombre": "COLEGIO ISABEL II (IED)", "sede": "ISABEL II", "localidad": "KENNEDY", "dane": "111001016071", "lat": 4.63327951, "lng": -74.15312301}, {"nombre": "COLEGIO ALQUERIA DE LA FRAGUA (IED)", "sede": "ALQUERIA DE LA FRAGUA", "localidad": "KENNEDY", "dane": "111001016098", "lat": 4.604914517, "lng": -74.13615634}, {"nombre": "COLEGIO LOS PERIODISTAS (IED)", "sede": "LOS PERIODISTAS", "localidad": "KENNEDY", "dane": "111001016101", "lat": 4.617503476, "lng": -74.15829007}, {"nombre": "COLEGIO LA CHUCUA (IED)", "sede": "LA CHUCUA", "localidad": "KENNEDY", "dane": "111001016136", "lat": 4.603657, "lng": -74.14828}, {"nombre": "COLEGIO KENNEDY (IED)", "sede": "KENNEDY", "localidad": "KENNEDY", "dane": "111001016292", "lat": 4.619617, "lng": -74.145868}, {"nombre": "COLEGIO FERNANDO SOTO APARICIO (IED)", "sede": "FERNANDO SOTO APARICIO", "localidad": "KENNEDY", "dane": "111001024660", "lat": 4.626205556, "lng": -74.17990278}, {"nombre": "COLEGIO INEM FRANCISCO DE PAULA SANTANDER (IED)", "sede": "INEM FRANCISCO DE PAULA SANTANDER", "localidad": "KENNEDY", "dane": "111001024732", "lat": 4.626611111, "lng": -74.15304167}, {"nombre": "COLEGIO JOHN F. KENNEDY (IED)", "sede": "SEDE A - JOHN F. KENNEDY", "localidad": "KENNEDY", "dane": "111001026964", "lat": 4.619485, "lng": -74.150793}, {"nombre": "COLEGIO PROSPERO PINZON (IED)", "sede": "PROSPERO PINZON", "localidad": "KENNEDY", "dane": "111001027308", "lat": 4.624233, "lng": -74.151085}, {"nombre": "COLEGIO MANUEL CEPEDA VARGAS (IED)", "sede": "MANUEL CEPEDA VARGAS", "localidad": "KENNEDY", "dane": "111001027391", "lat": 4.631723, "lng": -74.188525}, {"nombre": "COLEGIO JAIRO ANIBAL NIÑO (CED)", "sede": "JAIRO ANIBAL NIÑO", "localidad": "KENNEDY", "dane": "111001027405", "lat": 4.636904488, "lng": -74.16694339}, {"nombre": "COLEGIO JACKELINE (IED)", "sede": "JACKELINE", "localidad": "KENNEDY", "dane": "111001029114", "lat": 4.608187357, "lng": -74.16466795}, {"nombre": "COLEGIO MANUEL ZAPATA OLIVELLA (IED)", "sede": "MANUEL ZAPATA OLIVELLA", "localidad": "KENNEDY", "dane": "111001033898", "lat": 4.64060991, "lng": -74.15998004}, {"nombre": "COLEGIO LA FLORESTA SUR (IED)", "sede": "LA FLORESTA SUR", "localidad": "KENNEDY", "dane": "111001034045", "lat": 4.62072457, "lng": -74.12736055}, {"nombre": "COLEGIO SAN JOSE DE CASTILLA (IED)", "sede": "CASTILLA", "localidad": "KENNEDY", "dane": "111001041475", "lat": 4.638509066, "lng": -74.14374113}, {"nombre": "COLEGIO CASTILLA (IED)", "sede": "NUEVA CASTILLA", "localidad": "KENNEDY", "dane": "111001076767", "lat": 4.640599, "lng": -74.142172}, {"nombre": "COLEGIO VILLA RICA (IED)", "sede": "VILLA RICA", "localidad": "KENNEDY", "dane": "111001079154", "lat": 4.611280119, "lng": -74.16637882}, {"nombre": "COLEGIO ALFONSO LOPEZ PUMAREJO (IED)", "sede": "ALFONSO LOPEZ PUMAREJO", "localidad": "KENNEDY", "dane": "111001086649", "lat": 4.603534666, "lng": -74.14111244}, {"nombre": "COLEGIO INSTITUTO TECNICO RODRIGO DE TRIANA (IED)", "sede": "RODRIGO DE TRIANA", "localidad": "KENNEDY", "dane": "111001086771", "lat": 4.639889971, "lng": -74.16547361}, {"nombre": "COLEGIO EDUARDO UMAÑA LUNA (IED)", "sede": "EDUARDO UMAÑA LUNA", "localidad": "KENNEDY", "dane": "111001098906", "lat": 4.641846127, "lng": -74.17528579}, {"nombre": "COLEGIO HERNANDO DURAN DUSSAN (IED)", "sede": "HERNANDO DURAN DUSSAN", "localidad": "KENNEDY", "dane": "111001100048", "lat": 4.634812, "lng": -74.172592}, {"nombre": "COLEGIO GABRIEL BETANCOURT MEJIA (IED)", "sede": "SEDE A - GABRIEL BETANCOURT MEJIA", "localidad": "KENNEDY", "dane": "111001104281", "lat": 4.644821587, "lng": -74.15649945}, {"nombre": "COLEGIO CODEMA (IED)", "sede": "CODEMA", "localidad": "KENNEDY", "dane": "111001104558", "lat": 4.64842132, "lng": -74.16535203}, {"nombre": "COLEGIO NELSON MANDELA (IED)", "sede": "NELSON MANDELA", "localidad": "KENNEDY", "dane": "111001110477", "lat": 4.63586759, "lng": -74.17791407}, {"nombre": "COLEGIO TERESA MARTINEZ DE VARELA (IED)", "sede": "COLEGIO TERESA MARTINEZ DE VARELA (IED)", "localidad": "KENNEDY", "dane": "111001801268", "lat": 4.65718163, "lng": -74.15671646}, {"nombre": "COLEGIO RODRIGO ARENAS BETANCOURT (IED)", "sede": "RODRIGO ARENAS BETANCOURT", "localidad": "FONTIBON", "dane": "111001014346", "lat": 4.67064177, "lng": -74.14506549}, {"nombre": "COLEGIO PABLO NERUDA (IED)", "sede": "PABLO NERUDA", "localidad": "FONTIBON", "dane": "111001102199", "lat": 4.672303963, "lng": -74.14876073}, {"nombre": "COLEGIO CARLO FEDERICI (IED)", "sede": "CARLO FEDERICI", "localidad": "FONTIBON", "dane": "111001104272", "lat": 4.671556, "lng": -74.15956}, {"nombre": "COLEGIO LA FELICIDAD (IED)", "sede": "LA FELICIDAD", "localidad": "FONTIBON", "dane": "111001800091", "lat": 4.655753, "lng": -74.130613}, {"nombre": "COLEGIO ANTONIO VAN UDEN (IED)", "sede": "ANTONIO VAN UDEN", "localidad": "FONTIBON", "dane": "111279000061", "lat": 4.688874533, "lng": -74.15851865}, {"nombre": "COLEGIO VILLEMAR EL CARMEN (IED)", "sede": "VILLEMAR EL CARMEN", "localidad": "FONTIBON", "dane": "111279000125", "lat": 4.676363498, "lng": -74.13851321}, {"nombre": "COLEGIO INSTITUTO TECNICO INTERNACIONAL (IED)", "sede": "INTERNACIONAL", "localidad": "FONTIBON", "dane": "111279000168", "lat": 4.686678, "lng": -74.145227}, {"nombre": "COLEGIO LUIS ANGEL ARANGO (IED)", "sede": "LUIS ANGEL ARANGO", "localidad": "FONTIBON", "dane": "111279000184", "lat": 4.68410405, "lng": -74.13914602}, {"nombre": "COLEGIO COSTA RICA (IED)", "sede": "REPUBLICA DE COSTA RICA", "localidad": "FONTIBON", "dane": "111279000362", "lat": 4.67931585, "lng": -74.13802999}, {"nombre": "COLEGIO INTEGRADO DE FONTIBON IBEP (IED)", "sede": "INTEGRADO DE FONTIBON", "localidad": "FONTIBON", "dane": "111279000966", "lat": 4.683194948, "lng": -74.15238075}, {"nombre": "COLEGIO ATAHUALPA (IED)", "sede": "ATAHUALPA", "localidad": "FONTIBON", "dane": "111279001296", "lat": 4.688146626, "lng": -74.14841503}, {"nombre": "COLEGIO DE CULTURA POPULAR (IED)", "sede": "DE CULTURA POPULAR", "localidad": "PUENTE ARANDA", "dane": "111001000078", "lat": 4.606188582, "lng": -74.12018274}, {"nombre": "COLEGIO LA MERCED (IED)", "sede": "LA MERCED", "localidad": "PUENTE ARANDA", "dane": "111001006122", "lat": 4.621904071, "lng": -74.10148324}, {"nombre": "COLEGIO SILVERIA ESPINOSA DE RENDON (IED)", "sede": "SILVERIA ESPINOSA DE RENDON", "localidad": "PUENTE ARANDA", "dane": "111001011045", "lat": 4.629946065, "lng": -74.11285489}, {"nombre": "COLEGIO ANDRES BELLO (IED)", "sede": "ANDRES BELLO", "localidad": "PUENTE ARANDA", "dane": "111001011274", "lat": 4.599350826, "lng": -74.13046966}, {"nombre": "COLEGIO EL JAZMIN (IED)", "sede": "EL JAZMIN", "localidad": "PUENTE ARANDA", "dane": "111001012530", "lat": 4.615623, "lng": -74.109381}, {"nombre": "COLEGIO ESPAÑA (IED)", "sede": "ESPAÑA", "localidad": "PUENTE ARANDA", "dane": "111001012556", "lat": 4.622630556, "lng": -74.08949167}, {"nombre": "COLEGIO TECNICO BENJAMIN HERRERA (IED)", "sede": "BENJAMIN HERRERA", "localidad": "PUENTE ARANDA", "dane": "111001012963", "lat": 4.602169544, "lng": -74.12717313}, {"nombre": "COLEGIO JOSE JOAQUIN CASAS (IED)", "sede": "JOSE JOAQUIN CASAS", "localidad": "PUENTE ARANDA", "dane": "111001014729", "lat": 4.63217807, "lng": -74.10906095}, {"nombre": "COLEGIO ANTONIO JOSE DE SUCRE (IED)", "sede": "ANTONIO JOSE DE SUCRE", "localidad": "PUENTE ARANDA", "dane": "111001014745", "lat": 4.6337822, "lng": -74.11838526}, {"nombre": "COLEGIO MARCO ANTONIO CARREÑO SILVA (IED)", "sede": "EL REMANSO", "localidad": "PUENTE ARANDA", "dane": "111001014826", "lat": 4.6022999, "lng": -74.109341}, {"nombre": "COLEGIO LUIS VARGAS TEJADA (IED)", "sede": "LUIS VARGAS TEJADA", "localidad": "PUENTE ARANDA", "dane": "111001014869", "lat": 4.608523315, "lng": -74.12756362}, {"nombre": "COLEGIO JULIO GARAVITO ARMERO (IED)", "sede": "LA ALQUERIA", "localidad": "PUENTE ARANDA", "dane": "111001014885", "lat": 4.599930885, "lng": -74.13421548}, {"nombre": "COLEGIO SORRENTO (IED)", "sede": "SORRENTO", "localidad": "PUENTE ARANDA", "dane": "111001020168", "lat": 4.619647611, "lng": -74.11342313}, {"nombre": "COLEGIO JOSE MANUEL RESTREPO (IED)", "sede": "JOSE MANUEL RESTREPO", "localidad": "PUENTE ARANDA", "dane": "111001045535", "lat": 4.617267593, "lng": -74.12282657}, {"nombre": "COLEGIO LUIS CARLOS GALAN SARMIENTO (IED)", "sede": "LUIS CARLOS GALAN SARMIENTO", "localidad": "PUENTE ARANDA", "dane": "111001065056", "lat": 4.613027778, "lng": -74.11838056}, {"nombre": "COLEGIO RESTREPO MILLAN (IED)", "sede": "RESTREPO MILLAN", "localidad": "RAFAEL URIBE URIBE", "dane": "111001010928", "lat": 4.578927, "lng": -74.122129}, {"nombre": "COLEGIO REINO DE HOLANDA (IED)", "sede": "REINO DE HOLANDA", "localidad": "RAFAEL URIBE URIBE", "dane": "111001011029", "lat": 4.568067504, "lng": -74.12212797}, {"nombre": "COLEGIO LICEO FEMENINO DE CUNDINAMARCA MERCEDES NARIÑO (IED)", "sede": "LICEO FEMENINO DE CUNDINAMARCA MERCEDES NARIÑO", "localidad": "RAFAEL URIBE URIBE", "dane": "111001011819", "lat": 4.580127025, "lng": -74.10330007}, {"nombre": "COLEGIO BRAVO PAEZ (IED)", "sede": "BRAVO PAEZ", "localidad": "RAFAEL URIBE URIBE", "dane": "111001012611", "lat": 4.57978206, "lng": -74.11939167}, {"nombre": "COLEGIO QUIROGA ALIANZA (IED)", "sede": "QUIROGA ALIANZA", "localidad": "RAFAEL URIBE URIBE", "dane": "111001012815", "lat": 4.579347222, "lng": -74.11700278}, {"nombre": "COLEGIO SAN AGUSTIN (IED)", "sede": "SAN AGUSTIN", "localidad": "RAFAEL URIBE URIBE", "dane": "111001013811", "lat": 4.547423133, "lng": -74.11353592}, {"nombre": "COLEGIO REPUBLICA FEDERAL DE ALEMANIA (IED)", "sede": "REPUBLICA FEDERAL DE ALEMANIA", "localidad": "RAFAEL URIBE URIBE", "dane": "111001014028", "lat": 4.579119625, "lng": -74.12543316}, {"nombre": "COLEGIO MANUEL DEL SOCORRO RODRIGUEZ (IED)", "sede": "MANUEL DEL SOCORRO RODRIGUEZ", "localidad": "RAFAEL URIBE URIBE", "dane": "111001014591", "lat": 4.583138889, "lng": -74.12833056}, {"nombre": "COLEGIO EL LIBERTADOR (IED)", "sede": "EL LIBERTADOR", "localidad": "RAFAEL URIBE URIBE", "dane": "111001014664", "lat": 4.586694444, "lng": -74.11323889}, {"nombre": "COLEGIO CLEMENCIA HOLGUIN DE URDANETA (IED)", "sede": "CLEMENCIA HOLGUIN DE URDANETA", "localidad": "RAFAEL URIBE URIBE", "dane": "111001014958", "lat": 4.579518, "lng": -74.110896}, {"nombre": "COLEGIO ALEJANDRO OBREGON (IED)", "sede": "ALEJANDRO OBREGON", "localidad": "RAFAEL URIBE URIBE", "dane": "111001015172", "lat": 4.576014878, "lng": -74.10836811}, {"nombre": "COLEGIO ANTONIO BARAYA (IED)", "sede": "ANTONIO BARAYA", "localidad": "RAFAEL URIBE URIBE", "dane": "111001015733", "lat": 4.585921, "lng": -74.109351}, {"nombre": "COLEGIO ALEXANDER FLEMING (IED)", "sede": "REINO UNIDO DE HOLANDA", "localidad": "RAFAEL URIBE URIBE", "dane": "111001018058", "lat": 4.571960483, "lng": -74.12085952}, {"nombre": "COLEGIO MISAEL PASTRANA BORRERO (IED)", "sede": "MISAEL PASTRANA BORRERO", "localidad": "RAFAEL URIBE URIBE", "dane": "111001020095", "lat": 4.564530416, "lng": -74.10844577}, {"nombre": "COLEGIO GUSTAVO RESTREPO (IED)", "sede": "GUSTAVO RESTREPO", "localidad": "RAFAEL URIBE URIBE", "dane": "111001027332", "lat": 4.57577161, "lng": -74.10611614}, {"nombre": "COLEGIO ALFREDO IRIARTE (IED)", "sede": "CHIRCALES", "localidad": "RAFAEL URIBE URIBE", "dane": "111001027383", "lat": 4.557884938, "lng": -74.11230978}, {"nombre": "COLEGIO PALERMO SUR (CED)", "sede": "PALERMO SUR", "localidad": "RAFAEL URIBE URIBE", "dane": "111001028380", "lat": 4.542900547, "lng": -74.10991508}, {"nombre": "COLEGIO ENRIQUE OLAYA HERRERA (IED)", "sede": "ENRIQUE OLAYA HERRERA", "localidad": "RAFAEL URIBE URIBE", "dane": "111001030015", "lat": 4.56846796, "lng": -74.1020555}, {"nombre": "COLEGIO REPUBLICA EE.UU. DE AMERICA (IED)", "sede": "REPUBLICA EE.UU. DE AMERICA", "localidad": "RAFAEL URIBE URIBE", "dane": "111001032395", "lat": 4.584962436, "lng": -74.10613108}, {"nombre": "COLEGIO CLEMENCIA DE CAYCEDO (IED)", "sede": "CLEMENCIA DE CAYCEDO", "localidad": "RAFAEL URIBE URIBE", "dane": "111001034134", "lat": 4.580570885, "lng": -74.11484423}, {"nombre": "COLEGIO JOSE MARTI (IED)", "sede": "LUIS LOPEZ DE MESA", "localidad": "RAFAEL URIBE URIBE", "dane": "111001036765", "lat": 4.574439, "lng": -74.116002}, {"nombre": "COLEGIO LA PAZ (IED)", "sede": "LA PAZ", "localidad": "RAFAEL URIBE URIBE", "dane": "111001078930", "lat": 4.543768139, "lng": -74.11726472}, {"nombre": "COLEGIO COLOMBIA VIVA (IED)", "sede": "NESTOR FORERO ALCALA", "localidad": "RAFAEL URIBE URIBE", "dane": "111001102091", "lat": 4.547267432, "lng": -74.10997579}, {"nombre": "COLEGIO REPUBLICA DE MEXICO (IED)", "sede": "REPUBLICA DE MEXICO", "localidad": "CIUDAD BOLIVAR", "dane": "111001014486", "lat": 4.555030851, "lng": -74.13666039}, {"nombre": "COLEGIO RAFAEL URIBE URIBE (IED)", "sede": "RAFAEL URIBE URIBE", "localidad": "CIUDAD BOLIVAR", "dane": "111001014524", "lat": 4.547232, "lng": -74.148713}, {"nombre": "COLEGIO ISMAEL PERDOMO (IED)", "sede": "ISMAEL PERDOMO", "localidad": "CIUDAD BOLIVAR", "dane": "111001020320", "lat": 4.587439291, "lng": -74.16530983}, {"nombre": "COLEGIO LEON DE GREIFF (IED)", "sede": "LEON DE GREIFF", "localidad": "CIUDAD BOLIVAR", "dane": "111001027251", "lat": 4.550739987, "lng": -74.13849625}, {"nombre": "COLEGIO CIUDAD DE MONTREAL (IED)", "sede": "CIUDAD DE MONTREAL", "localidad": "CIUDAD BOLIVAR", "dane": "111001028266", "lat": 4.55340403, "lng": -74.13828651}, {"nombre": "COLEGIO SANTA BARBARA (IED)", "sede": "COMPARTIR MEISSEN", "localidad": "CIUDAD BOLIVAR", "dane": "111001030821", "lat": 4.557816, "lng": -74.146031}, {"nombre": "COLEGIO UNION EUROPEA (IED)", "sede": "UNION EUROPEA", "localidad": "CIUDAD BOLIVAR", "dane": "111001030830", "lat": 4.548772, "lng": -74.143576}, {"nombre": "COLEGIO ARBORIZADORA BAJA (IED)", "sede": "ARBORIZADORA BAJA", "localidad": "CIUDAD BOLIVAR", "dane": "111001030848", "lat": 4.575430459, "lng": -74.15137296}, {"nombre": "COLEGIO EL TESORO DE LA CUMBRE (IED)", "sede": "EL TESORO", "localidad": "CIUDAD BOLIVAR", "dane": "111001033928", "lat": 4.536615544, "lng": -74.14927547}, {"nombre": "COLEGIO NICOLAS GOMEZ DAVILA (IED)", "sede": "NICOLAS GOMEZ DAVILA", "localidad": "CIUDAD BOLIVAR", "dane": "111001034240", "lat": 4.563773, "lng": -74.149206}, {"nombre": "COLEGIO COMPARTIR RECUERDO (IED)", "sede": "COMPARTIR LUCERO ALTO", "localidad": "CIUDAD BOLIVAR", "dane": "111001034754", "lat": 4.548921799, "lng": -74.14550796}, {"nombre": "COLEGIO ACACIA II (IED)", "sede": "ACACIA II", "localidad": "CIUDAD BOLIVAR", "dane": "111001035572", "lat": 4.560063889, "lng": -74.14459444}, {"nombre": "COLEGIO JOSE JAIME ROJAS (IED)", "sede": "JOSE JAIME ROJAS", "localidad": "CIUDAD BOLIVAR", "dane": "111001036561", "lat": 4.539886, "lng": -74.150974}, {"nombre": "COLEGIO RODRIGO LARA BONILLA (IED)", "sede": "RODRIGO LARA BONILLA", "localidad": "CIUDAD BOLIVAR", "dane": "111001036781", "lat": 4.5690219, "lng": -74.14958025}, {"nombre": "COLEGIO TECNICO CEDID GUILLERMO CANO ISAZA (IED)", "sede": "TECNICO CEDID GUILLERMO CANO ISAZA", "localidad": "CIUDAD BOLIVAR", "dane": "111001044385", "lat": 4.5575434, "lng": -74.13549103}, {"nombre": "COLEGIO EL PARAISO DE MANUELA BELTRAN (IED)", "sede": "MANUELA BELTRAN", "localidad": "CIUDAD BOLIVAR", "dane": "111001045730", "lat": 4.571743087, "lng": -74.16125242}, {"nombre": "COLEGIO VILLAMAR (IED)", "sede": "VILLA GLORIA", "localidad": "CIUDAD BOLIVAR", "dane": "111001046663", "lat": 4.553542973, "lng": -74.15284069}, {"nombre": "COLEGIO LA ARABIA (IED)", "sede": "LA ARABIA", "localidad": "CIUDAD BOLIVAR", "dane": "111001047457", "lat": 4.532033333, "lng": -74.14875556}, {"nombre": "COLEGIO ARBORIZADORA ALTA (IED)", "sede": "ARBORIZADORA ALTA", "localidad": "CIUDAD BOLIVAR", "dane": "111001047571", "lat": 4.568277, "lng": -74.159739}, {"nombre": "COLEGIO PARAISO MIRADOR (IED)", "sede": "SEDE A - PARAISO MIRADOR", "localidad": "CIUDAD BOLIVAR", "dane": "111001047678", "lat": 4.550911, "lng": -74.16317}, {"nombre": "COLEGIO MARIA MERCEDES CARRANZA (IED)", "sede": "MARIA MERCEDES CARRANZA", "localidad": "CIUDAD BOLIVAR", "dane": "111001075329", "lat": 4.586556, "lng": -74.163435}, {"nombre": "COLEGIO ESTRELLA DEL SUR (IED)", "sede": "ESTRELLA DEL SUR", "localidad": "CIUDAD BOLIVAR", "dane": "111001075663", "lat": 4.719414175, "lng": -74.06971477}, {"nombre": "COLEGIO SOTAVENTO (IED)", "sede": "SOTAVENTO", "localidad": "CIUDAD BOLIVAR", "dane": "111001075752", "lat": 4.544452864, "lng": -74.13739536}, {"nombre": "COLEGIO SAN FRANCISCO (IED)", "sede": "SAN FRANCISCO", "localidad": "CIUDAD BOLIVAR", "dane": "111001076937", "lat": 4.56276297, "lng": -74.14953771}, {"nombre": "COLEGIO CONFEDERACION BRISAS DEL DIAMANTE (IED)", "sede": "CONFEDERACION SUIZA", "localidad": "CIUDAD BOLIVAR", "dane": "111001086584", "lat": 4.548286307, "lng": -74.14883115}, {"nombre": "COLEGIO EL MINUTO DE BUENOS AIRES (IED)", "sede": "BUENOS AIRES", "localidad": "CIUDAD BOLIVAR", "dane": "111001086762", "lat": 4.539547014, "lng": -74.14016587}, {"nombre": "COLEGIO CEDID CIUDAD BOLIVAR (IED)", "sede": "CIUDAD BOLIVAR", "localidad": "CIUDAD BOLIVAR", "dane": "111001086801", "lat": 4.571886, "lng": -74.165393}, {"nombre": "COLEGIO SIERRA MORENA (IED)", "sede": "SIERRA MORENA", "localidad": "CIUDAD BOLIVAR", "dane": "111001086835", "lat": 4.570756757, "lng": -74.16931579}, {"nombre": "COLEGIO LA ESTANCIA - SAN ISIDRO LABRADOR (IED)", "sede": "LA ESTANCIA", "localidad": "CIUDAD BOLIVAR", "dane": "111001092410", "lat": 4.591738889, "lng": -74.18203889}, {"nombre": "COLEGIO CIUDAD BOLIVAR - ARGENTINA (IED)", "sede": "CIUDAD BOLIVAR", "localidad": "CIUDAD BOLIVAR", "dane": "111001096555", "lat": 4.573265286, "lng": -74.16225297}, {"nombre": "COLEGIO LA JOYA (IED)", "sede": "LA JOYA", "localidad": "CIUDAD BOLIVAR", "dane": "111001098973", "lat": 4.537185204, "lng": -74.14503265}, {"nombre": "COLEGIO FANNY MIKEY (IED)", "sede": "FANNY MIKEY", "localidad": "CIUDAD BOLIVAR", "dane": "111001109304", "lat": 4.549527961, "lng": -74.15292924}, {"nombre": "COLEGIO AGUDELO RESTREPO (IED)", "sede": "COLEGIO AGUDELO RESTREPO (IED)", "localidad": "CIUDAD BOLIVAR", "dane": "111001801314", "lat": 4.58650249, "lng": -74.16278667}, {"nombre": "COLEGIO RURAL PASQUILLA (IED)", "sede": "RURAL PASQUILLA", "localidad": "CIUDAD BOLIVAR", "dane": "211850001121", "lat": 4.444684, "lng": -74.156896}, {"nombre": "COLEGIO RURAL QUIBA ALTA (IED)", "sede": "RURAL QUIBA ALTA", "localidad": "CIUDAD BOLIVAR", "dane": "211850001171", "lat": 4.527577, "lng": -74.17187}, {"nombre": "COLEGIO MOCHUELO ALTO (CED)", "sede": "MOCHUELO ALTO", "localidad": "CIUDAD BOLIVAR", "dane": "211850001180", "lat": 4.488341, "lng": -74.148353}, {"nombre": "COLEGIO RURAL JOSE CELESTINO MUTIS (IED)", "sede": "RURAL JOSE CELESTINO MUTIS", "localidad": "CIUDAD BOLIVAR", "dane": "211850001317", "lat": 4.5106, "lng": -74.152312}, {"nombre": "COLEGIO CANADA (IED)", "sede": "CANADA", "localidad": "CIUDAD BOLIVAR", "dane": "311001075034", "lat": 4.541201258, "lng": -74.15465001}, {"nombre": "COLEGIO CAMPESTRE JAIME GARZON (IED)", "sede": "RURAL LAS AURAS", "localidad": "SUMAPAZ", "dane": "211001076346", "lat": 4.180707, "lng": -74.133548}];
+var COLS={"SAN CRISTOBAL": "#3b82f6", "USME": "#f59e0b", "TUNJUELITO": "#10b981", "BOSA": "#ef4444", "KENNEDY": "#8b5cf6", "FONTIBON": "#06b6d4", "PUENTE ARANDA": "#f97316", "RAFAEL URIBE URIBE": "#ec4899", "CIUDAD BOLIVAR": "#84cc16", "SUMAPAZ": "#6366f1"};
+
+var map=L.map('map',{center:[4.58,-74.12],zoom:12,zoomControl:false});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+L.control.zoom({position:'topright'}).addTo(map);
+
+// Localidad visibility state
+var locVis={};
+Object.keys(COLS).forEach(function(l){locVis[l]=true;});
+
+function hexToRgb(h){var r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return r+','+g+','+b;}
+
+function mkIcon(color){
+  return L.divIcon({className:'',
+    html:'<div style="width:14px;height:14px;border-radius:50%;background:'+color+';border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);"></div>',
+    iconSize:[14,14],iconAnchor:[7,7],popupAnchor:[0,-10]
+  });
+}
+
+var markers=[];
+var ac=null;
+
+function ini(){
+  DATA.forEach(function(d,i){
+    var col=COLS[d.localidad]||'#94a3b8';
+    var m=L.marker([d.lat,d.lng],{icon:mkIcon(col)});
+    var rgb=hexToRgb(col);
+    m.bindPopup(L.popup({maxWidth:280}).setContent(
+      '<div class="pop-top" style="background:'+col+'">&#x1F3EB; Institución Educativa</div>'+
+      '<div class="pop-body">'+
+      '<div class="pop-name">'+d.nombre+'</div>'+
+      '<div class="pop-row"><b>Sede</b>'+d.sede+'</div>'+
+      '<div class="pop-row"><b>Código DANE</b>'+d.dane+'</div>'+
+      '<div class="pop-row"><b>Coords</b>'+d.lat.toFixed(5)+', '+d.lng.toFixed(5)+'</div>'+
+      '<div class="pop-loc" style="background:rgba('+rgb+',.12);color:'+col+'">'+d.localidad+'</div>'+
+      '</div>'
+    ));
+    m.addTo(map);
+    m.on('click',(function(x){return function(){sel(x);};})(i));
+    markers.push({l:m,d:d,i:i,v:true});
+  });
+  buildLegend();
+  rl();
+  uc();
+}
+
+function buildLegend(){
+  var lg=document.getElementById('legend');
+  var counts={};
+  DATA.forEach(function(d){counts[d.localidad]=(counts[d.localidad]||0)+1;});
+  Object.keys(COLS).forEach(function(loc){
+    var div=document.createElement('div');
+    div.className='leg-item';div.id='leg-'+loc;
+    div.innerHTML='<div class="leg-dot" style="background:'+COLS[loc]+'"></div>'+
+      '<span class="leg-name">'+loc.replace(' ','<br>')+'</span>'+
+      '<span class="leg-count">'+(counts[loc]||0)+'</span>';
+    div.onclick=function(){toggleLoc(loc);};
+    lg.appendChild(div);
+  });
+}
+
+function toggleLoc(loc){
+  locVis[loc]=!locVis[loc];
+  var el=document.getElementById('leg-'+loc);
+  if(el) el.classList.toggle('off',!locVis[loc]);
+  af();
+}
+
+function af(){
+  var fLoc=document.getElementById('f-loc').value;
+  var fQ=document.getElementById('f-search').value.toLowerCase().trim();
+  markers.forEach(function(m){
+    var d=m.d;
+    var okLoc=(!fLoc||d.localidad===fLoc)&&locVis[d.localidad];
+    var okQ=!fQ||d.nombre.toLowerCase().includes(fQ)||d.sede.toLowerCase().includes(fQ);
+    m.v=okLoc&&okQ;
+    if(m.v){if(!map.hasLayer(m.l))m.l.addTo(map);}
+    else{if(map.hasLayer(m.l))map.removeLayer(m.l);}
+  });
+  uc();rl();
+  // sync legend
+  Object.keys(COLS).forEach(function(loc){
+    var el=document.getElementById('leg-'+loc);
+    if(el&&fLoc&&fLoc!==loc) el.classList.add('off');
+    else if(el&&!fLoc) el.classList.toggle('off',!locVis[loc]);
+  });
+}
+
+function rf(){
+  document.getElementById('f-loc').value='';
+  document.getElementById('f-search').value='';
+  Object.keys(locVis).forEach(function(l){locVis[l]=true;});
+  document.querySelectorAll('.leg-item').forEach(function(el){el.classList.remove('off');});
+  af();
+}
+
+function uc(){
+  var v=markers.filter(function(m){return m.v;}).length;
+  document.getElementById('cnt-vis').textContent=v;
+  document.getElementById('cnt-res').textContent=v;
+  document.getElementById('big-cnt').textContent=v;
+}
+
+function rl(){
+  var ul=document.getElementById('plist');ul.innerHTML='';
+  var vis=markers.filter(function(m){return m.v;}).slice(0,80);
+  if(!vis.length){ul.innerHTML='<div class="empty">Sin resultados</div>';return;}
+  vis.forEach(function(m){
+    var li=document.createElement('li');
+    var act=ac===m.i;
+    li.className='li'+(act?' act':'');
+    var col=COLS[m.d.localidad]||'#94a3b8';
+    li.innerHTML='<div class="li-dot" style="background:'+col+'"></div>'+
+      '<div class="li-body"><div class="li-n">'+m.d.nombre+'</div>'+
+      '<div class="li-s">'+m.d.localidad+'</div></div>';
+    li.onclick=(function(x){return function(){sel(x);};})(m.i);
+    ul.appendChild(li);
+  });
+  if(markers.filter(function(m){return m.v;}).length>80){
+    var more=document.createElement('div');
+    more.className='empty';
+    more.textContent='... y '+(markers.filter(function(m){return m.v;}).length-80)+' más. Usa el filtro para acotar.';
+    ul.appendChild(more);
+  }
+}
+
+function sel(i){
+  ac=i;
+  var m=markers[i];if(!m)return;
+  map.flyTo([m.d.lat,m.d.lng],16,{duration:.6});
+  setTimeout(function(){m.l.openPopup();},650);
+  rl();
+}
+
+ini();
+</script>
+
+<!--
+========================================================
+  OPCIONES PARA INSERTAR EN POWERPOINT - DINAMICO
+========================================================
+
+OPCION 1 - iFrame en PowerPoint (recomendada):
+  1. Guarda este archivo HTML en OneDrive o SharePoint
+  2. En PowerPoint: Insertar > Objetos en linea (iframe)
+  3. Pega la URL publica del archivo HTML
+  Resultado: mapa completamente interactivo dentro de la diapositiva
+
+OPCION 2 - Web Viewer Add-in:
+  1. Insertar > Obtener complementos > buscar "Web Viewer"
+  2. Pega la URL donde alojaste el HTML
+  Funciona en PowerPoint Online y desktop con Microsoft 365
+
+OPCION 3 - Captura para PDF/PowerPoint estatico:
+  1. Abre este HTML en Chrome
+  2. Ajusta el zoom al encuadre que quieres
+  3. Ctrl+Shift+P > "Capture full size screenshot" (DevTools)
+  4. Inserta la imagen PNG resultante en tu slide o PDF
+  Ideal para documentos impresos o sin conexion
+
+OPCION 4 - Exportar a PDF con mapa visible:
+  1. Abre el HTML en Chrome con el zoom y filtros deseados
+  2. Ctrl+P > Guardar como PDF
+  3. Asegurate de activar "Graficos en segundo plano"
+
+Para PDF insertable: usa cualquier visor PDF con soporte HTML,
+o convierte la vista del mapa con Puppeteer/wkhtmltopdf.
+========================================================
+-->
+</body>
+</html>
